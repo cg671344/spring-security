@@ -1,10 +1,11 @@
-/* Copyright 2004, 2005, 2006 Acegi Technology Pty Limited
+/*
+ * Copyright 2004, 2005, 2006 Acegi Technology Pty Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,15 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.security.access.annotation;
 
-import static org.junit.Assert.*;
-
-import org.junit.*;
-import org.springframework.security.access.ConfigAttribute;
-import org.springframework.security.access.SecurityConfig;
-import org.springframework.security.access.intercept.method.MockMethodInvocation;
-import org.springframework.security.core.GrantedAuthority;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Inherited;
@@ -28,11 +25,21 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.List;
 
+import org.junit.Test;
+import org.springframework.security.access.ConfigAttribute;
+import org.springframework.security.access.SecurityConfig;
+import org.springframework.security.access.annotation.sec2150.MethodInvocationFactory;
+import org.springframework.security.access.intercept.method.MockMethodInvocation;
+import org.springframework.security.core.GrantedAuthority;
 
 /**
- * Tests for {@link org.springframework.security.access.annotation.SecuredAnnotationSecurityMetadataSource}
+ * Tests for
+ * {@link org.springframework.security.access.annotation.SecuredAnnotationSecurityMetadataSource}
  *
  * @author Mark St.Godard
  * @author Joe Scalise
@@ -40,225 +47,272 @@ import java.util.*;
  * @author Luke Taylor
  */
 public class SecuredAnnotationSecurityMetadataSourceTests {
-    //~ Instance fields ================================================================================================
+	// ~ Instance fields
+	// ================================================================================================
 
-    private SecuredAnnotationSecurityMetadataSource mds = new SecuredAnnotationSecurityMetadataSource();
+	private SecuredAnnotationSecurityMetadataSource mds = new SecuredAnnotationSecurityMetadataSource();
 
-    //~ Methods ========================================================================================================
+	// ~ Methods
+	// ========================================================================================================
 
-    @Test
-    public void genericsSuperclassDeclarationsAreIncludedWhenSubclassesOverride() {
-        Method method = null;
+	@Test
+	public void genericsSuperclassDeclarationsAreIncludedWhenSubclassesOverride() {
+		Method method = null;
 
-        try {
-            method = DepartmentServiceImpl.class.getMethod("someUserMethod3", new Class[] {Department.class});
-        } catch (NoSuchMethodException unexpected) {
-            fail("Should be a superMethod called 'someUserMethod3' on class!");
-        }
+		try {
+			method = DepartmentServiceImpl.class.getMethod("someUserMethod3",
+					new Class[] { Department.class });
+		}
+		catch (NoSuchMethodException unexpected) {
+			fail("Should be a superMethod called 'someUserMethod3' on class!");
+		}
 
-        Collection<ConfigAttribute> attrs = mds.findAttributes(method, DepartmentServiceImpl.class);
+		Collection<ConfigAttribute> attrs = mds.findAttributes(method,
+				DepartmentServiceImpl.class);
 
-        assertNotNull(attrs);
+		assertThat(attrs).isNotNull();
 
-        // expect 1 attribute
-        assertTrue("Did not find 1 attribute", attrs.size() == 1);
+		// expect 1 attribute
+		assertThat(attrs.size() == 1).as("Did not find 1 attribute").isTrue();
 
-        // should have 1 SecurityConfig
-        for (ConfigAttribute sc : attrs) {
-            assertEquals("Found an incorrect role", "ROLE_ADMIN", sc.getAttribute());
-        }
+		// should have 1 SecurityConfig
+		for (ConfigAttribute sc : attrs) {
+			assertThat(sc.getAttribute()).as("Found an incorrect role").isEqualTo(
+					"ROLE_ADMIN");
+		}
 
-        Method superMethod = null;
+		Method superMethod = null;
 
-        try {
-            superMethod = DepartmentServiceImpl.class.getMethod("someUserMethod3", new Class[] {Entity.class});
-        } catch (NoSuchMethodException unexpected) {
-            fail("Should be a superMethod called 'someUserMethod3' on class!");
-        }
+		try {
+			superMethod = DepartmentServiceImpl.class.getMethod("someUserMethod3",
+					new Class[] { Entity.class });
+		}
+		catch (NoSuchMethodException unexpected) {
+			fail("Should be a superMethod called 'someUserMethod3' on class!");
+		}
 
-        Collection<ConfigAttribute> superAttrs = this.mds.findAttributes(superMethod, DepartmentServiceImpl.class);
+		Collection<ConfigAttribute> superAttrs = this.mds.findAttributes(superMethod,
+				DepartmentServiceImpl.class);
 
-        assertNotNull(superAttrs);
+		assertThat(superAttrs).isNotNull();
 
-        // This part of the test relates to SEC-274
-        // expect 1 attribute
-        assertEquals("Did not find 1 attribute", 1, superAttrs.size());
-        // should have 1 SecurityConfig
-        for (ConfigAttribute sc : superAttrs) {
-            assertEquals("Found an incorrect role", "ROLE_ADMIN", sc.getAttribute());
-        }
-    }
+		// This part of the test relates to SEC-274
+		// expect 1 attribute
+		assertThat(superAttrs).as("Did not find 1 attribute").hasSize(1);
+		// should have 1 SecurityConfig
+		for (ConfigAttribute sc : superAttrs) {
+			assertThat(sc.getAttribute()).as("Found an incorrect role").isEqualTo(
+					"ROLE_ADMIN");
+		}
+	}
 
-    @Test
-    public void classLevelAttributesAreFound() {
-        Collection<ConfigAttribute> attrs = this.mds.findAttributes(BusinessService.class);
+	@Test
+	public void classLevelAttributesAreFound() {
+		Collection<ConfigAttribute> attrs = this.mds.findAttributes(
+				BusinessService.class);
 
-        assertNotNull(attrs);
+		assertThat(attrs).isNotNull();
 
-        // expect 1 annotation
-        assertEquals(1, attrs.size());
+		// expect 1 annotation
+		assertThat(attrs).hasSize(1);
 
-        // should have 1 SecurityConfig
-        SecurityConfig sc = (SecurityConfig) attrs.toArray()[0];
+		// should have 1 SecurityConfig
+		SecurityConfig sc = (SecurityConfig) attrs.toArray()[0];
 
-        assertEquals("ROLE_USER", sc.getAttribute());
-    }
+		assertThat(sc.getAttribute()).isEqualTo("ROLE_USER");
+	}
 
-    @Test
-    public void methodLevelAttributesAreFound() {
-        Method method = null;
+	@Test
+	public void methodLevelAttributesAreFound() {
+		Method method = null;
 
-        try {
-            method = BusinessService.class.getMethod("someUserAndAdminMethod", new Class[] {});
-        } catch (NoSuchMethodException unexpected) {
-            fail("Should be a method called 'someUserAndAdminMethod' on class!");
-        }
+		try {
+			method = BusinessService.class.getMethod("someUserAndAdminMethod",
+					new Class[] {});
+		}
+		catch (NoSuchMethodException unexpected) {
+			fail("Should be a method called 'someUserAndAdminMethod' on class!");
+		}
 
-        Collection<ConfigAttribute> attrs = this.mds.findAttributes(method, BusinessService.class);
+		Collection<ConfigAttribute> attrs = this.mds.findAttributes(method,
+				BusinessService.class);
 
-        assertNotNull(attrs);
+		// expect 2 attributes
+		assertThat(attrs).hasSize(2);
 
-        // expect 2 attributes
-        assertEquals(2, attrs.size());
+		boolean user = false;
+		boolean admin = false;
 
-        boolean user = false;
-        boolean admin = false;
+		// should have 2 SecurityConfigs
+		for (ConfigAttribute sc : attrs) {
+			assertThat(sc).isInstanceOf(SecurityConfig.class);
 
-        // should have 2 SecurityConfigs
-        for (ConfigAttribute sc : attrs) {
-            assertTrue(sc instanceof SecurityConfig);
+			if (sc.getAttribute().equals("ROLE_USER")) {
+				user = true;
+			}
+			else if (sc.getAttribute().equals("ROLE_ADMIN")) {
+				admin = true;
+			}
+		}
 
-            if (sc.getAttribute().equals("ROLE_USER")) {
-                user = true;
-            } else if (sc.getAttribute().equals("ROLE_ADMIN")) {
-                admin = true;
-            }
-        }
+		// expect to have ROLE_USER and ROLE_ADMIN
+		assertThat(user).isEqualTo(admin).isTrue();
+	}
 
-        // expect to have ROLE_USER and ROLE_ADMIN
-        assertTrue(user && admin);
-    }
+	// SEC-1491
+	@Test
+	public void customAnnotationAttributesAreFound() throws Exception {
+		SecuredAnnotationSecurityMetadataSource mds = new SecuredAnnotationSecurityMetadataSource(
+				new CustomSecurityAnnotationMetadataExtractor());
+		Collection<ConfigAttribute> attrs = mds.findAttributes(
+				CustomAnnotatedService.class);
+		assertThat(attrs).containsOnly(SecurityEnum.ADMIN);
+	}
 
-    // SEC-1491
-    @Test
-    public void customAnnotationAttributesAreFound() throws Exception {
-        SecuredAnnotationSecurityMetadataSource mds =
-                new SecuredAnnotationSecurityMetadataSource(new CustomSecurityAnnotationMetadataExtractor());
-        Collection<ConfigAttribute> attrs = mds.findAttributes(CustomAnnotatedService.class);
-        assertEquals(1, attrs.size());
-        assertEquals(SecurityEnum.ADMIN, attrs.toArray()[0]);
-    }
+	@Test
+	public void annotatedAnnotationAtClassLevelIsDetected() throws Exception {
+		MockMethodInvocation annotatedAtClassLevel = new MockMethodInvocation(
+				new AnnotatedAnnotationAtClassLevel(), ReturnVoid.class, "doSomething",
+				List.class);
 
-    @Test
-    public void annotatedAnnotationAtClassLevelIsDetected() throws Exception {
-        MockMethodInvocation annotatedAtClassLevel = new MockMethodInvocation(new AnnotatedAnnotationAtClassLevel(), ReturnVoid.class, "doSomething", List.class);
+		ConfigAttribute[] attrs = mds.getAttributes(annotatedAtClassLevel).toArray(
+				new ConfigAttribute[0]);
 
-        ConfigAttribute[] attrs = mds.getAttributes(annotatedAtClassLevel).toArray(new ConfigAttribute[0]);
+		assertThat(attrs).hasSize(1);
+		assertThat(attrs).extracting("attribute").containsOnly("CUSTOM");
+	}
 
-        assertEquals(1, attrs.length);
-        assertEquals("CUSTOM", attrs[0].getAttribute());
-    }
+	@Test
+	public void annotatedAnnotationAtInterfaceLevelIsDetected() throws Exception {
+		MockMethodInvocation annotatedAtInterfaceLevel = new MockMethodInvocation(
+				new AnnotatedAnnotationAtInterfaceLevel(), ReturnVoid2.class,
+				"doSomething", List.class);
 
-    @Test
-    public void annotatedAnnotationAtInterfaceLevelIsDetected() throws Exception {
-        MockMethodInvocation annotatedAtInterfaceLevel = new MockMethodInvocation(new AnnotatedAnnotationAtInterfaceLevel(), ReturnVoid2.class, "doSomething", List.class);
+		ConfigAttribute[] attrs = mds.getAttributes(annotatedAtInterfaceLevel).toArray(
+				new ConfigAttribute[0]);
 
-        ConfigAttribute[] attrs = mds.getAttributes(annotatedAtInterfaceLevel).toArray(new ConfigAttribute[0]);
+		assertThat(attrs).hasSize(1);
+		assertThat(attrs).extracting("attribute").containsOnly("CUSTOM");
+	}
 
-        assertEquals(1, attrs.length);
-        assertEquals("CUSTOM", attrs[0].getAttribute());
-    }
+	@Test
+	public void annotatedAnnotationAtMethodLevelIsDetected() throws Exception {
+		MockMethodInvocation annotatedAtMethodLevel = new MockMethodInvocation(
+				new AnnotatedAnnotationAtMethodLevel(), ReturnVoid.class, "doSomething",
+				List.class);
+		ConfigAttribute[] attrs = mds.getAttributes(annotatedAtMethodLevel).toArray(
+				new ConfigAttribute[0]);
 
-    @Test
-    public void annotatedAnnotationAtMethodLevelIsDetected() throws Exception {
-        MockMethodInvocation annotatedAtMethodLevel = new MockMethodInvocation(new AnnotatedAnnotationAtMethodLevel(), ReturnVoid.class, "doSomething", List.class);
-        ConfigAttribute[] attrs = mds.getAttributes(annotatedAtMethodLevel).toArray(new ConfigAttribute[0]);
+		assertThat(attrs).hasSize(1);
+		assertThat(attrs).extracting("attribute").containsOnly("CUSTOM");
+	}
 
-        assertEquals(1, attrs.length);
-        assertEquals("CUSTOM", attrs[0].getAttribute());
-    }
+	@Test
+	public void proxyFactoryInterfaceAttributesFound() throws Exception {
+		MockMethodInvocation mi = MethodInvocationFactory.createSec2150MethodInvocation();
+		Collection<ConfigAttribute> attributes = mds.getAttributes(mi);
+		assertThat(attributes).hasSize(1);
+		assertThat(attributes).extracting("attribute").containsOnly("ROLE_PERSON");
+	}
 
-    // Inner classes
-    class Department extends Entity {
-        public Department(String name) {
-            super(name);
-        }
-    }
+	// Inner classes
+	class Department extends Entity {
 
-    interface DepartmentService extends BusinessService {
-        @Secured({"ROLE_USER"})
-        Department someUserMethod3(Department dept);
-    }
+		public Department(String name) {
+			super(name);
+		}
+	}
 
-    class DepartmentServiceImpl extends BusinessServiceImpl<Department> implements DepartmentService {
-        @Secured({"ROLE_ADMIN"})
-        public Department someUserMethod3(final Department dept) {
-            return super.someUserMethod3(dept);
-        }
-    }
+	interface DepartmentService extends BusinessService {
 
-    // SEC-1491 Related classes. PoC for custom annotation with enum value.
+		@Secured({ "ROLE_USER" })
+		Department someUserMethod3(Department dept);
+	}
 
-    @CustomSecurityAnnotation(SecurityEnum.ADMIN)
-    interface CustomAnnotatedService {
-    }
+	@SuppressWarnings("serial")
+	class DepartmentServiceImpl extends BusinessServiceImpl<Department>
+			implements DepartmentService {
 
-    class CustomAnnotatedServiceImpl implements CustomAnnotatedService {
-    }
+		@Secured({ "ROLE_ADMIN" })
+		public Department someUserMethod3(final Department dept) {
+			return super.someUserMethod3(dept);
+		}
+	}
 
-    enum SecurityEnum implements ConfigAttribute, GrantedAuthority {
-        ADMIN,
-        USER;
+	// SEC-1491 Related classes. PoC for custom annotation with enum value.
 
-        public String getAttribute() {
-            return toString();
-        }
+	@CustomSecurityAnnotation(SecurityEnum.ADMIN)
+	interface CustomAnnotatedService {
+	}
 
-        public String getAuthority() {
-            return toString();
-        }
-    }
+	class CustomAnnotatedServiceImpl implements CustomAnnotatedService {
+	}
 
-    @Target({ElementType.METHOD, ElementType.TYPE})
-    @Retention(RetentionPolicy.RUNTIME)
-    @interface CustomSecurityAnnotation {
-        SecurityEnum[] value();
-    }
+	enum SecurityEnum implements ConfigAttribute, GrantedAuthority {
+		ADMIN, USER;
 
-    class CustomSecurityAnnotationMetadataExtractor implements AnnotationMetadataExtractor<CustomSecurityAnnotation> {
-        public Collection<? extends ConfigAttribute> extractAttributes(CustomSecurityAnnotation securityAnnotation) {
-            SecurityEnum[] values = securityAnnotation.value();
+		public String getAttribute() {
+			return toString();
+		}
 
-            return EnumSet.copyOf(Arrays.asList(values));
-        }
-    }
+		public String getAuthority() {
+			return toString();
+		}
+	}
 
-    @Target({ ElementType.METHOD, ElementType.TYPE })
-    @Retention(RetentionPolicy.RUNTIME)
-    @Inherited
-    @Secured("CUSTOM")
-    public @interface AnnotatedAnnotation {}
+	@Target({ ElementType.METHOD, ElementType.TYPE })
+	@Retention(RetentionPolicy.RUNTIME)
+	@interface CustomSecurityAnnotation {
 
-    public static interface ReturnVoid {
-        public void doSomething(List<?> param);
-    }
+		SecurityEnum[]value();
+	}
 
-    @AnnotatedAnnotation
-    public static interface ReturnVoid2 {
-        public void doSomething(List<?> param);
-    }
+	class CustomSecurityAnnotationMetadataExtractor
+			implements AnnotationMetadataExtractor<CustomSecurityAnnotation> {
 
-    @AnnotatedAnnotation
-    public static class AnnotatedAnnotationAtClassLevel implements ReturnVoid {
-        public void doSomething(List<?> param) {}
-    }
+		public Collection<? extends ConfigAttribute> extractAttributes(
+				CustomSecurityAnnotation securityAnnotation) {
+			SecurityEnum[] values = securityAnnotation.value();
 
-    public static class AnnotatedAnnotationAtInterfaceLevel implements ReturnVoid2 {
-        public void doSomething(List<?> param) {}
-    }
+			return EnumSet.copyOf(Arrays.asList(values));
+		}
+	}
 
-    public static class AnnotatedAnnotationAtMethodLevel implements ReturnVoid {
-        @AnnotatedAnnotation
-        public void doSomething(List<?> param) {}
-    }
+	@Target({ ElementType.METHOD, ElementType.TYPE })
+	@Retention(RetentionPolicy.RUNTIME)
+	@Inherited
+	@Secured("CUSTOM")
+	public @interface AnnotatedAnnotation {
+	}
+
+	public static interface ReturnVoid {
+
+		public void doSomething(List<?> param);
+	}
+
+	@AnnotatedAnnotation
+	public static interface ReturnVoid2 {
+
+		public void doSomething(List<?> param);
+	}
+
+	@AnnotatedAnnotation
+	public static class AnnotatedAnnotationAtClassLevel implements ReturnVoid {
+
+		public void doSomething(List<?> param) {
+		}
+	}
+
+	public static class AnnotatedAnnotationAtInterfaceLevel implements ReturnVoid2 {
+
+		public void doSomething(List<?> param) {
+		}
+	}
+
+	public static class AnnotatedAnnotationAtMethodLevel implements ReturnVoid {
+
+		@AnnotatedAnnotation
+		public void doSomething(List<?> param) {
+		}
+	}
 }

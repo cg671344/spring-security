@@ -1,86 +1,19 @@
-apply plugin: 'base'
+buildscript {
+	dependencies {
+		classpath 'io.spring.gradle:spring-build-conventions:0.0.10.RELEASE'
+		classpath "org.springframework.boot:spring-boot-gradle-plugin:$springBootVersion"
+	}
+	repositories {
+		maven { url 'https://repo.spring.io/plugins-snapshot' }
+	}
+}
+apply plugin: 'io.spring.convention.root'
 
+group = 'org.springframework.security'
 description = 'Spring Security'
 
-allprojects {
-    ext.releaseBuild = version.endsWith('RELEASE')
-    ext.snapshotBuild = version.endsWith('SNAPSHOT')
+ext.snapshotBuild = version.contains("SNAPSHOT")
+ext.releaseBuild = version.contains("SNAPSHOT")
+ext.milestoneBuild = !(snapshotBuild || releaseBuild)
 
-    group = 'org.springframework.security'
-
-    repositories {
-        maven { url "http://repo.springsource.org/libs-snapshot" }
-    }
-
-
-}
-
-// Set up different subproject lists for individual configuration
-ext.javaProjects = subprojects.findAll { project -> project.name != 'docs' && project.name != 'faq' && project.name != 'manual' }
-ext.sampleProjects = subprojects.findAll { project -> project.name.startsWith('spring-security-samples') }
-ext.itestProjects = subprojects.findAll { project -> project.name.startsWith('itest') }
-ext.coreModuleProjects = javaProjects - sampleProjects - itestProjects
-ext.aspectjProjects = [project(':spring-security-aspects'), project(':spring-security-samples-aspectj')]
-
-configure(subprojects - coreModuleProjects) {
-    tasks.findByPath("artifactoryPublish")?.enabled = false
-}
-
-configure(javaProjects) {
-    apply from: "$rootDir/gradle/javaprojects.gradle"
-    apply from: "$rootDir/gradle/release-checks.gradle"
-}
-
-configure(coreModuleProjects) {
-    // Gives better names in structure101 jar diagram
-    sourceSets.main.output.classesDir = new File(buildDir, "classes/" + project.name.substring("spring-security".length() + 1))
-    apply plugin: 'bundlor'
-    bundlor.expansions = bundlorProperties
-    apply from: "$rootDir/gradle/maven-deployment.gradle"
-    apply plugin: 'emma'
-}
-
-task coreBuild {
-    dependsOn coreModuleProjects*.tasks*.matching { task -> task.name == 'build' }
-}
-
-configure (aspectjProjects) {
-    apply plugin: 'aspectj'
-}
-
-// Task for creating the distro zip
-
-task dist(type: Zip) {
-    dependsOn subprojects*.tasks*.matching { task -> task.name == 'assemble' || task.name.endsWith('Zip') }
-    classifier = 'dist'
-
-    evaluationDependsOn(':docs')
-
-    def zipRootDir = "${project.name}-$version"
-    into(zipRootDir) {
-        from(rootDir) {
-            include '*.txt'
-        }
-        into('docs') {
-            with(project(':docs').apiSpec)
-            with(project(':docs:manual').spec)
-        }
-        into('dist') {
-            from coreModuleProjects.collect {project -> project.libsDir }
-            from project(':spring-security-samples-tutorial').libsDir
-            from project(':spring-security-samples-contacts').libsDir
-        }
-    }
-}
-
-artifacts {
-    archives dist
-    archives project(':docs').docsZip
-    archives project(':docs').schemaZip
-}
-
-apply from: "$rootDir/gradle/ide-integration.gradle"
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '1.3'
-}
+dependencyManagementExport.projects = subprojects.findAll { !it.name.contains('-boot') }

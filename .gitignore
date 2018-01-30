@@ -1,3 +1,4 @@
+classes/
 target/
 */src/*/java/META-INF
 */src/META-INF/
@@ -19,3 +20,6 @@ build/
 *.iws
 .gradle/
 atlassian-ide-plugin.xml
+!etc/eclipse/.checkstyle
+.checkstyle
+s101plugin.state

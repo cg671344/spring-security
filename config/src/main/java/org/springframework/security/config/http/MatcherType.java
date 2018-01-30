@@ -1,14 +1,29 @@
+/*
+ * Copyright 2002-2016 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.springframework.security.config.http;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.security.web.util.AntPathRequestMatcher;
-import org.springframework.security.web.util.AnyRequestMatcher;
-import org.springframework.security.web.util.RegexRequestMatcher;
-import org.springframework.security.web.util.RequestMatcher;
+import org.springframework.beans.factory.xml.ParserContext;
+import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
+import org.springframework.security.web.util.matcher.RegexRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StringUtils;
 import org.w3c.dom.Element;
 
@@ -19,48 +34,56 @@ import org.w3c.dom.Element;
  * @since 3.1
  */
 public enum MatcherType {
-    ant (AntPathRequestMatcher.class),
-    regex (RegexRequestMatcher.class),
-    ciRegex (RegexRequestMatcher.class);
+	ant(AntPathRequestMatcher.class), regex(RegexRequestMatcher.class), ciRegex(
+			RegexRequestMatcher.class), mvc(MvcRequestMatcher.class);
 
-    private static final Log logger = LogFactory.getLog(MatcherType.class);
+	private static final String HANDLER_MAPPING_INTROSPECTOR_BEAN_NAME = "mvcHandlerMappingIntrospector";
 
-    private static final String ATT_MATCHER_TYPE = "request-matcher";
-    private static final String ATT_PATH_TYPE = "path-type";
+	private static final String ATT_MATCHER_TYPE = "request-matcher";
 
-    private final Class<? extends RequestMatcher> type;
+	final Class<? extends RequestMatcher> type;
 
-    MatcherType(Class<? extends RequestMatcher> type) {
-        this.type = type;
-    }
+	MatcherType(Class<? extends RequestMatcher> type) {
+		this.type = type;
+	}
 
-    public BeanDefinition createMatcher(String path, String method) {
-        if (("/**".equals(path) || "**".equals(path)) && method == null) {
-            return new RootBeanDefinition(AnyRequestMatcher.class);
-        }
+	public BeanDefinition createMatcher(ParserContext pc, String path, String method) {
+		return createMatcher(pc, path, method, null);
+	}
 
-        BeanDefinitionBuilder matcherBldr = BeanDefinitionBuilder.rootBeanDefinition(type);
+	public BeanDefinition createMatcher(ParserContext pc, String path, String method, String servletPath) {
+		if (("/**".equals(path) || "**".equals(path)) && method == null) {
+			return new RootBeanDefinition(AnyRequestMatcher.class);
+		}
 
-        matcherBldr.addConstructorArgValue(path);
-        matcherBldr.addConstructorArgValue(method);
+		BeanDefinitionBuilder matcherBldr = BeanDefinitionBuilder
+				.rootBeanDefinition(type);
 
-        if (this == ciRegex) {
-             matcherBldr.addConstructorArgValue(true);
-        }
+		if (this == mvc) {
+			matcherBldr.addConstructorArgValue(new RootBeanDefinition(HandlerMappingIntrospectorFactoryBean.class));
+		}
 
-        return matcherBldr.getBeanDefinition();
-    }
+		matcherBldr.addConstructorArgValue(path);
+		if (this == mvc) {
+			matcherBldr.addPropertyValue("method", method);
+			matcherBldr.addPropertyValue("servletPath", servletPath);
+		}
+		else {
+			matcherBldr.addConstructorArgValue(method);
+		}
 
-    static MatcherType fromElement(Element elt) {
-        if (StringUtils.hasText(elt.getAttribute(ATT_MATCHER_TYPE))) {
-            return valueOf(elt.getAttribute(ATT_MATCHER_TYPE));
-        }
+		if (this == ciRegex) {
+			matcherBldr.addConstructorArgValue(true);
+		}
 
-        if (StringUtils.hasText(elt.getAttribute(ATT_PATH_TYPE))) {
-            logger.warn("'" + ATT_PATH_TYPE + "' is deprecated. Please use '" + ATT_MATCHER_TYPE +"' instead.");
-            return valueOf(elt.getAttribute(ATT_PATH_TYPE));
-        }
+		return matcherBldr.getBeanDefinition();
+	}
 
-        return ant;
-    }
+	static MatcherType fromElement(Element elt) {
+		if (StringUtils.hasText(elt.getAttribute(ATT_MATCHER_TYPE))) {
+			return valueOf(elt.getAttribute(ATT_MATCHER_TYPE));
+		}
+
+		return ant;
+	}
 }
